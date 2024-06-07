@@ -5,7 +5,7 @@
 # @desc    : 智联杯示例代码
 # @license : Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-import math
+from heapq import heappush, heappop
 
 class MessageTask:
     def __init__(self, msgType, usrInst, exeTime, deadLine, idx):
@@ -46,6 +46,10 @@ def main():
     cores = [[] for _ in range(m)]
     core_end_times = [0] * m
     affinity_scores = [0] * m
+    completed_tasks = [0] * m
+
+    # 优先队列（最小堆）来管理每个核的负载情况
+    core_heap = [(0, i) for i in range(m)]
 
     for uid in range(MAX_USER_ID):
         if not tasks[uid]:
@@ -72,16 +76,22 @@ def main():
 
         # 如果没有找到满足条件的核，选择当前负载最小的核
         if best_core == -1:
-            best_core = core_end_times.index(min(core_end_times))
+            _, best_core = heappop(core_heap)
 
         last_msg_type = None
         for task in tasks[uid]:
             if cores[best_core] and cores[best_core][-1].msgType == task.msgType:
                 affinity_scores[best_core] += 1
+            if core_end_times[best_core] + task.exeTime <= task.deadLine:
+                completed_tasks[best_core] += 1
             task.endTime = core_end_times[best_core] + task.exeTime  # 记录任务的结束时间
             cores[best_core].append(task)
             core_end_times[best_core] += task.exeTime
             last_msg_type = task.msgType
+
+        # 更新堆中的核负载信息
+        heappush(core_heap, (core_end_times[best_core], best_core))
+
 
     # 输出结果
     output_lines = []
