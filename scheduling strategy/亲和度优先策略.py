@@ -38,31 +38,36 @@ def main():
     core_endtime = [0] * m
     core_task_counts = [0] * m
 
+    force_least_task_core = False  # 是否强制分配到最少任务的核
+
     # 5. 逐个用户处理任务
     for user_task in user_tasks:
         user_task.sort(key=lambda t: t.deadLine)  # 对每个用户的任务按截止时间排序
 
-        # 获取当前用户所有任务的类型集合
-        user_msg_types = set(task.msgType for task in user_task)
-
-        # 选择合适的核
-        best_core = None
-        best_match_count = -1
-        min_endtime = float('inf')
-        min_task_count = float('inf')
-
-        for i in range(m):
-            # 计算当前核中与用户所有任务类型相同的数量
-            current_match_count = sum(1 for t in cores[i] if t.msgType in user_msg_types)
-            if current_match_count > best_match_count:
-                best_match_count = current_match_count
-                best_core = i
-            elif current_match_count == best_match_count and core_endtime[i] < min_endtime:
-                min_endtime = core_endtime[i]
-                best_core = i
-
-        if best_core is None or (core_task_counts[best_core] - min(core_task_counts)) > min(core_task_counts) and (core_task_counts[best_core] - min(core_task_counts)) > 50:
+        if force_least_task_core:
             best_core = core_task_counts.index(min(core_task_counts))
+        else:
+            # 获取当前用户所有任务的类型集合
+            user_msg_types = set(task.msgType for task in user_task)
+
+            # 选择合适的核
+            best_core = None
+            best_match_count = -1
+            min_endtime = float('inf')
+            min_task_count = float('inf')
+
+            for i in range(m):
+                # 计算当前核中与用户所有任务类型相同的数量
+                current_match_count = sum(1 for t in cores[i] if t.msgType in user_msg_types)
+                if current_match_count > best_match_count:
+                    best_match_count = current_match_count
+                    best_core = i
+                elif current_match_count == best_match_count and core_endtime[i] < min_endtime:
+                    min_endtime = core_endtime[i]
+                    best_core = i
+
+            if best_core is None or (core_task_counts[best_core] - min(core_task_counts)) > min(core_task_counts) and (core_task_counts[best_core] - min(core_task_counts)) > 50:
+                best_core = core_task_counts.index(min(core_task_counts))
 
         # 分配任务
         for task_index, task in enumerate(user_task):
@@ -120,7 +125,28 @@ def main():
             core_task_counts[best_core] += 1
             core_endtime[best_core] = max(core_endtime[best_core], task.deadLine)
 
-    # 6. 输出结果
+        # 检查任务数量差异
+        max_tasks = max(core_task_counts)
+        min_tasks = min(core_task_counts)
+        if max_tasks - min_tasks > 40:
+            force_least_task_core = True
+        elif max_tasks - min_tasks < 20:
+            force_least_task_core = False
+
+    # 6. 检查并纠正连续相同类型的任务
+    for core in cores:
+        i = 0
+        while i < len(core):
+            start = i
+            while i < len(core) - 1 and core[i].msgType == core[i + 1].msgType:
+                i += 1
+            if i > start:
+                same_type_tasks = core[start:i + 1]
+                same_type_tasks.sort(key=lambda t: t.deadLine)
+                core[start:i + 1] = same_type_tasks
+            i += 1
+
+    # 7. 输出结果
     output_lines = []
     for coreId, core_tasks in enumerate(cores):
         line = str(len(core_tasks))

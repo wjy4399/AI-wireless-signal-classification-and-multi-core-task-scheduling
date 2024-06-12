@@ -128,12 +128,25 @@ def main():
         # 检查任务数量差异
         max_tasks = max(core_task_counts)
         min_tasks = min(core_task_counts)
-        if max_tasks - min_tasks > 100:
+        if max_tasks - min_tasks > 40:
             force_least_task_core = True
-        elif max_tasks - min_tasks < 50:
+        elif max_tasks - min_tasks < 20:
             force_least_task_core = False
 
-    # 6. 输出结果
+    # 6. 检查并纠正连续相同类型的任务
+    for core in cores:
+        i = 0
+        while i < len(core):
+            start = i
+            while i < len(core) - 1 and core[i].msgType == core[i + 1].msgType:
+                i += 1
+            if i > start:
+                same_type_tasks = core[start:i + 1]
+                same_type_tasks.sort(key=lambda t: t.deadLine)
+                core[start:i + 1] = same_type_tasks
+            i += 1
+
+    # 7. 输出结果
     output_lines = []
     for coreId, core_tasks in enumerate(cores):
         line = str(len(core_tasks))

@@ -116,7 +116,7 @@ def calculate_scores(n, m, c, tasks, cores):
 # Example usage:
 input_file = 'dataset/多核任务调度数据集/case2.txt'
 
-for i in range(6):
+for i in range(7):
     output_file = f'result/output{i}.txt'  # Replace with your output file
     accuracy = 0.74
     if i == 0:
@@ -130,7 +130,9 @@ for i in range(6):
     elif i == 4:
         print('__________________亲和度优先策略__________________')
     elif i == 5:
-        print('__________________test__________________')
+        print('__________________亲和度+负载均衡__________________')
+    elif i == 6:
+        print('__________________亲和度+负载均衡+检查并纠正连续相同类型的任务__________________')
     n, m, c, tasks = read_input_data(input_file)
     tasks = adjust_execution_time(tasks, accuracy)
     cores = read_output_data(output_file)
