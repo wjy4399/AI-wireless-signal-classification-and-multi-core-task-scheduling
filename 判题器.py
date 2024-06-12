@@ -114,11 +114,11 @@ def calculate_scores(n, m, c, tasks, cores):
 
 
 # Example usage:
-input_file = 'data/多核任务调度数据集/case2.txt'
+input_file = 'dataset/多核任务调度数据集/case2.txt'
 
-for i in range(5):
-    output_file = f'output{i}.txt'  # Replace with your output file
-    accuracy = 0.69
+for i in range(6):
+    output_file = f'result/output{i}.txt'  # Replace with your output file
+    accuracy = 0.74
     if i == 0:
         print('__________________遗传算法__________________')
     elif i == 1:
@@ -128,6 +128,8 @@ for i in range(5):
     elif i == 3:
         print('__________________完成优先策略__________________')
     elif i == 4:
+        print('__________________亲和度优先策略__________________')
+    elif i == 5:
         print('__________________test__________________')
     n, m, c, tasks = read_input_data(input_file)
     tasks = adjust_execution_time(tasks, accuracy)
