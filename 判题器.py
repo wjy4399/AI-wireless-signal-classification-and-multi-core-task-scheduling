@@ -40,6 +40,7 @@ def adjust_execution_time(tasks, accuracy):
 def check_constraints(n, m, c, tasks, cores):
     task_dict = {(task[0], task[1]): (task[2], task[3]) for task in tasks}
     user_task_completion_time = {}
+    user_core_assignment = {}
     current_time = [0] * m
 
     for core_id, core in enumerate(cores):
@@ -49,6 +50,13 @@ def check_constraints(n, m, c, tasks, cores):
 
             exe_time, deadline = task_dict[task]
             msg_type, usr_inst = task
+
+            # Ensure tasks of the same user run on the same core
+            if usr_inst in user_core_assignment:
+                if user_core_assignment[usr_inst] != core_id:
+                    return False, f"Tasks for user instance {usr_inst} are not on the same core."
+            else:
+                user_core_assignment[usr_inst] = core_id
 
             # Ensure tasks are executed in sequence (FIFO) within a core
             if task_idx > 0 and core[task_idx - 1][1] == usr_inst and task_idx != core.index(task):
@@ -109,15 +117,15 @@ def calculate_scores(n, m, c, tasks, cores):
 input_file = 'data/多核任务调度数据集/case2.txt'
 
 for i in range(5):
-    output_file =f'output{i}.txt'  # Replace with your output file
+    output_file = f'output{i}.txt'  # Replace with your output file
     accuracy = 0.69
-    if i ==0:
+    if i == 0:
         print('__________________遗传算法__________________')
-    elif i==1:
+    elif i == 1:
         print('__________________贪心算法__________________')
-    elif i ==2:
+    elif i == 2:
         print('__________________负载均衡__________________')
-    elif i ==3:
+    elif i == 3:
         print('__________________完成优先策略__________________')
     elif i == 4:
         print('__________________test__________________')
