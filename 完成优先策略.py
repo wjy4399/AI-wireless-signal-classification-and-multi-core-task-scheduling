@@ -1,10 +1,3 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-# @Time    : 2024/5/10 下午8:33
-# @File    : main.py
-# @desc    : 智联杯示例代码
-# @license : Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
-
 class MessageTask:
     def __init__(self):
         self.msgType = 0
@@ -36,6 +29,7 @@ def main():
     # 初始化核状态
     cores = [[] for _ in range(m)]
     core_end_times = [0] * m  # 记录每个核的结束时间
+    user_core_assignment = [-1] * MAX_USER_ID  # 记录每个用户的核分配
 
     # 3. 调度逻辑：按截止时间排序并调度
     user_last_task_end = [-1] * MAX_USER_ID  # 记录每个用户上一个任务的结束时间
@@ -43,7 +37,7 @@ def main():
     for task in tasks:
         uid = task.usrInst
 
-        if user_last_task_end[uid] == -1:  # 如果是该用户的第一个任务
+        if user_core_assignment[uid] == -1:  # 如果是该用户的第一个任务
             candidate_cores = [(core_end_times[core_id], core_id) for core_id in range(m) if
                                core_end_times[core_id] + task.exeTime <= task.deadLine]
             if candidate_cores:
@@ -52,41 +46,19 @@ def main():
                 cores[min_core_id].append(task)
                 core_end_times[min_core_id] += task.exeTime
                 user_last_task_end[uid] = core_end_times[min_core_id]
+                user_core_assignment[uid] = min_core_id
         else:
-            inserted = False
-            # 查找从上一个任务结束时间点后的任务匹配，包括所有核
-            candidate_cores = [(core_end_times[core_id], len(cores[core_id]), core_id) for core_id in range(m) if
-                               core_end_times[core_id] >= user_last_task_end[uid] and core_end_times[
-                                   core_id] + task.exeTime <= task.deadLine]
-            if candidate_cores:
-                candidate_cores.sort(key=lambda x: (x[0], x[1]))  # 按时间和任务数量排序
-                min_end_time, _, min_core_id = candidate_cores[0]
-                task.startTime = core_end_times[min_core_id]
-                cores[min_core_id].append(task)
-                core_end_times[min_core_id] += task.exeTime
-                user_last_task_end[uid] = core_end_times[min_core_id]
-                inserted = True
-
-            # 如果未找到匹配，查找由近到远的所有任务匹配
-            if not inserted:
-                candidate_cores = [(core_end_times[core_id], len(cores[core_id]), core_id) for core_id in range(m) if
-                                   core_end_times[core_id] + task.exeTime <= task.deadLine]
-                if candidate_cores:
-                    candidate_cores.sort(key=lambda x: (x[0], x[1]))  # 按时间和任务数量排序
-                    min_end_time, _, min_core_id = candidate_cores[0]
-                    task.startTime = core_end_times[min_core_id]
-                    cores[min_core_id].append(task)
-                    core_end_times[min_core_id] += task.exeTime
-                    user_last_task_end[uid] = core_end_times[min_core_id]
-                    inserted = True
-
-            # 如果仍未找到匹配，插入到用时最短的核中
-            if not inserted:
-                min_core_id = core_end_times.index(min(core_end_times))
-                task.startTime = max(core_end_times[min_core_id], user_last_task_end[uid])
-                cores[min_core_id].append(task)
-                core_end_times[min_core_id] = task.startTime + task.exeTime
-                user_last_task_end[uid] = core_end_times[min_core_id]
+            core_id = user_core_assignment[uid]
+            if core_end_times[core_id] >= user_last_task_end[uid] and core_end_times[core_id] + task.exeTime <= task.deadLine:
+                task.startTime = core_end_times[core_id]
+                cores[core_id].append(task)
+                core_end_times[core_id] += task.exeTime
+                user_last_task_end[uid] = core_end_times[core_id]
+            else:
+                task.startTime = max(core_end_times[core_id], user_last_task_end[uid])
+                cores[core_id].append(task)
+                core_end_times[core_id] = task.startTime + task.exeTime
+                user_last_task_end[uid] = core_end_times[core_id]
 
     # 4. 输出结果
     output_lines = []
