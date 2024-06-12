@@ -11,11 +11,7 @@ class MessageTask:
         self.usrInst = 0
         self.exeTime = 0
         self.deadLine = 0
-
-
 MAX_USER_ID = 10005
-
-
 def main():
     # 1. 读取任务数、核数、系统最大执行时间
     n, m, c = map(int, input().split())
