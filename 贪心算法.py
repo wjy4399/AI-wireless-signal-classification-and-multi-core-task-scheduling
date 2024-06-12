@@ -10,7 +10,7 @@ class MessageTask:
         self.endTime = 0
 
 MAX_USER_ID = 10005
-ACCURACY = 0.65
+ACCURACY = 0.69
 
 def adjust_execution_time(exeTime, accuracy):
     adjusted_time = exeTime * (2 - accuracy * accuracy)
@@ -90,12 +90,6 @@ def main():
         tasks[uid].sort(key=lambda x: (x.deadLine, x.exeTime))
 
     cores = greedy_schedule(tasks, m)
-    affinity_score, completed_tasks = calculate_scores(cores)
-    normalized_score = calculate_normalized_score(affinity_score, completed_tasks, n)
-
-    print(f"Affinity Score: {affinity_score}")
-    print(f"Completed Tasks: {completed_tasks}")
-    print(f"Normalized Score: {normalized_score}")
 
     output_lines = []
     for coreId, core_tasks in enumerate(cores):
