@@ -118,7 +118,7 @@ input_file = 'dataset/多核任务调度数据集/case2.txt'
 
 for i in range(6):
     output_file = f'result/output{i}.txt'  # Replace with your output file
-    accuracy = 0.72
+    accuracy = 0.8
     if i == 0:
         print('__________________遗传算法__________________')
     elif i == 1:

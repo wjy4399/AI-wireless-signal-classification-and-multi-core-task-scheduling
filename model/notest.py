@@ -71,38 +71,62 @@ def preprocess(folder_path):
 
     return np.array(data), np.array(labels)
 
-path1 = r"D:\课外文件\比赛\智联杯\本地调试的数据集\1.AI场景分类训练集(带标签)\train_set_remake\train_set_remake"
+path1 = 'train_set_remake'
 data1, labels1 = preprocess(path1)
 
 print(f"Data shape: {data1.shape}")
 print(f"Labels shape: {labels1.shape}")
 
 # 数据分割
-split1 = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
-split2 = StratifiedShuffleSplit(n_splits=1, test_size=2/3, random_state=42)
+split = StratifiedShuffleSplit(n_splits=1, test_size=0.125, random_state=42)
 
-for train_idx, temp_idx in split1.split(data1, labels1):
-    X_train, X_temp = data1[train_idx], data1[temp_idx]
-    y_train, y_temp = labels1[train_idx], labels1[temp_idx]
+for train_idx, val_idx in split.split(data1, labels1):
+    X_train, X_val = data1[train_idx], data1[val_idx]
+    y_train, y_val = labels1[train_idx], labels1[val_idx]
 
-for val_idx, test_idx in split2.split(X_temp, y_temp):
-    X_val, X_test = X_temp[val_idx], X_temp[test_idx]
-    y_val, y_test = y_temp[val_idx], y_temp[test_idx]
+from collections import Counter
+
+# 检查原始数据集、训练集和验证集中各类别的比例
+def check_class_distribution(labels, dataset_name):
+    counter = Counter(labels)
+    total = len(labels)
+    print(f"Class distribution in {dataset_name}:")
+    for cls, count in counter.items():
+        print(f"Class {cls}: {count} samples, proportion: {count / total:.2%}")
+
+# 打印原始数据集、训练集和验证集的类别分布
+check_class_distribution(labels1, "original dataset")
+check_class_distribution(y_train, "training set")
+check_class_distribution(y_val, "validation set")
 
 # 数据标准化
 scaler = StandardScaler()
 X_train_reshaped = X_train.reshape(X_train.shape[0], -1)
 X_val_reshaped = X_val.reshape(X_val.shape[0], -1)
-X_test_reshaped = X_test.reshape(X_test.shape[0], -1)
 
 X_train_scaled = scaler.fit_transform(X_train_reshaped).reshape(X_train.shape)
 X_val_scaled = scaler.transform(X_val_reshaped).reshape(X_val.shape)
-X_test_scaled = scaler.transform(X_test_reshaped).reshape(X_test.shape)
 
 # 过采样
-sm = SMOTE(random_state=42)
+
+desired_total_samples_per_class = 400  # 这里设定每个类别最终的样本数量
+sampling_strategy_over = {label: desired_total_samples_per_class for label in np.unique(y_train) if np.sum(y_train == label) < desired_total_samples_per_class}
+
+# 计算 sampling_strategy
+sampling_strategy = {label: desired_total_samples_per_class for label in np.unique(y_train)}
+
+sm = SMOTE(sampling_strategy=sampling_strategy_over, random_state=42)
 X_train_res, y_train_res = sm.fit_resample(X_train_reshaped, y_train)
-X_train_res = X_train_res.reshape(-1, 15360, 2)  # 恢复原始形状
+X_train_res = X_train_res.reshape(-1, X_train.shape[1], X_train.shape[2])  # 恢复原始形状
+counter_resampled = Counter(y_train_res)
+print("Resampled training set label distribution:")
+for label, count in counter_resampled.items():
+    print(f"Label {label}: {count} samples")
+
+
+'''X_train_res, y_train_res=X_train_scaled, y_train'''
+X_val_res, y_val_res = X_val_scaled, y_val
+
 
 # 创建自定义数据集
 class ComplexDataset(Dataset):
@@ -131,12 +155,10 @@ class ComplexDataset(Dataset):
         return torch.tensor(sample_data, dtype=torch.float32), torch.tensor(sample_label, dtype=torch.long)
 
 train_dataset = ComplexDataset(X_train_res, y_train_res, augment=False)
-val_dataset = ComplexDataset(X_val_scaled, y_val, augment=False)
-test_dataset = ComplexDataset(X_test_scaled, y_test, augment=False)
+val_dataset = ComplexDataset(X_val_res, y_val_res, augment=False)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 # 简化后的FT-Transformer模型
 class SimplifiedFTTransformer(nn.Module):
@@ -216,127 +238,44 @@ class EarlyStopping:
             self.counter += 1
             if self.verbose:
                 print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
+            if self.counter >= self.patience and accuracy>0.85:
                 self.early_stop = True
         else:
             self.best_score = score
             self.val_loss_min = val_loss
             self.counter = 0
-if __name__ == '__main__':
-    best_accuracy = load_best_accuracy()
-    early_stopping = EarlyStopping(patience=30, verbose=True)
 
-    for epoch in range(num_epochs):
-        model.train()
-        total_loss = 0
-        correct = 0
-        all_targets = []
-        all_preds = []
-        for inputs, targets in train_loader:
-            inputs, targets = inputs.to(device), targets.to(device)
-            optimizer.zero_grad()
+best_accuracy = load_best_accuracy()
+early_stopping = EarlyStopping(patience=15, verbose=True)
 
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0
+    correct = 0
+    all_targets = []
+    all_preds = []
+    for inputs, targets in train_loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
 
-            loss.backward()
-            optimizer.step()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
 
-            total_loss += loss.item()
-            _, y_pred_ft = torch.max(outputs, 1)
-            correct += (y_pred_ft == targets).sum().item()
-            all_targets.extend(targets.cpu().numpy())
-            all_preds.extend(y_pred_ft.cpu().numpy())
+        loss.backward()
+        optimizer.step()
 
-        avg_loss = total_loss / len(train_loader)
-        train_accuracy = correct / len(train_dataset)
-        train_f1 = f1_score(all_targets, all_preds, average='weighted')
-        print(
-            f'Epoch {epoch + 1}/{num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Train F1 Score: {train_f1:.4f}')
+        total_loss += loss.item()
+        _, y_pred_ft = torch.max(outputs, 1)
+        correct += (y_pred_ft == targets).sum().item()
+        all_targets.extend(targets.cpu().numpy())
+        all_preds.extend(y_pred_ft.cpu().numpy())
 
-        # 评估模型在验证集上的表现
-        model.eval()
-        correct = 0
-        total = 0
-        all_targets = []
-        all_preds = []
-        with torch.no_grad():
-            total_loss = 0
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                total_loss += loss.item()
-                _, y_pred_ft = torch.max(outputs, 1)
-                correct += (y_pred_ft == targets).sum().item()
-                all_targets.extend(targets.cpu().numpy())
-                all_preds.extend(y_pred_ft.cpu().numpy())
-            avg_val_loss = total_loss / len(val_loader)
+    avg_loss = total_loss / len(train_loader)
+    train_accuracy = correct / len(train_dataset)
+    train_f1 = f1_score(all_targets, all_preds, average='weighted')
+    print(f'Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Train F1 Score: {train_f1:.4f}')
 
-        val_accuracy = correct / len(val_dataset)
-        val_f1 = f1_score(all_targets, all_preds, average='weighted')
-        print(
-            f'Validation Accuracy after epoch {epoch + 1}: {val_accuracy:.4f}, Validation Loss: {avg_val_loss:.4f}, Validation F1 Score: {val_f1:.4f}')
-        best_accuracy = load_best_accuracy()
-        if val_accuracy > best_accuracy:
-            best_accuracy = val_accuracy
-            save_best_model(model, val_accuracy, train_loader.batch_size, learning_rate, weight_decay, epoch + 1)
-
-        # 评估模型在测试集上的表现
-        correct = 0
-        total = 0
-        all_targets = []
-        all_preds = []
-        with torch.no_grad():
-            total_loss = 0
-            for inputs, targets in test_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                total_loss += loss.item()
-                _, y_pred_ft = torch.max(outputs, 1)
-                correct += (y_pred_ft == targets).sum().item()
-                all_targets.extend(targets.cpu().numpy())
-                all_preds.extend(y_pred_ft.cpu().numpy())
-            avg_test_loss = total_loss / len(test_loader)
-
-        test_accuracy = correct / len(test_dataset)
-        test_f1 = f1_score(all_targets, all_preds, average='weighted')
-        print(
-            f'Test Accuracy after epoch {epoch + 1}: {test_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test F1 Score: {test_f1:.4f}')
-
-        if record and (epoch + 1) % 5 == 0:
-            # 记录到 W&B
-            wandb.log({
-                "epoch": epoch + 1,
-                "loss": avg_loss,
-                "train_accuracy": train_accuracy,
-                "train_f1": train_f1,
-                "val_loss": avg_val_loss,
-                "val_accuracy": val_accuracy,
-                "val_f1": val_f1,
-                "test_loss": avg_test_loss,
-                "test_accuracy": test_accuracy,
-                "test_f1": test_f1
-            })
-            # 保存模型权重到 W&B
-            wandb.save('best_model_co.pth')
-
-        # 调整学习率
-        scheduler.step(avg_val_loss)
-
-        # 使用早停机制
-        early_stopping(avg_val_loss, model, epoch, val_accuracy, train_loader, learning_rate, weight_decay)
-
-        if early_stopping.early_stop:
-            print("Early stopping")
-            break
-        free_memory(inputs, targets, outputs)
-
-    # 打印预测结果的示例
-    print(f'Sample predictions: {y_pred_ft[:10]}')
-
-    # 评估模型在测试集上的表现
+    # 评估模型在验证集上的表现
     model.eval()
     correct = 0
     total = 0
@@ -344,7 +283,7 @@ if __name__ == '__main__':
     all_preds = []
     with torch.no_grad():
         total_loss = 0
-        for inputs, targets in test_loader:
+        for inputs, targets in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
@@ -353,16 +292,40 @@ if __name__ == '__main__':
             correct += (y_pred_ft == targets).sum().item()
             all_targets.extend(targets.cpu().numpy())
             all_preds.extend(y_pred_ft.cpu().numpy())
-        avg_test_loss = total_loss / len(test_loader)
+        avg_val_loss = total_loss / len(val_loader)
 
-    test_accuracy = correct / len(test_dataset)
-    test_f1 = f1_score(all_targets, all_preds, average='weighted')
-    print(f'Test Accuracy: {test_accuracy:.4f}, Test Loss: {avg_test_loss:.4f}, Test F1 Score: {test_f1:.4f}')
-    if record:
-        # 记录测试结果到 W&B
+    val_accuracy = correct / len(val_dataset)
+    val_f1 = f1_score(all_targets, all_preds, average='weighted')
+    print(f'Validation Accuracy after epoch {epoch+1}: {val_accuracy:.4f}, Validation Loss: {avg_val_loss:.4f}, Validation F1 Score: {val_f1:.4f}')
+    best_accuracy = load_best_accuracy()
+    if val_accuracy > best_accuracy:
+        best_accuracy = val_accuracy
+        save_best_model(model, val_accuracy, train_loader.batch_size, learning_rate, weight_decay, epoch+1)
+
+    if record and (epoch+1)%5==0:
+        # 记录到 W&B
         wandb.log({
-            "test_loss": avg_test_loss,
-            "test_accuracy": test_accuracy,
-            "test_f1": test_f1
+            "epoch": epoch + 1,
+            "loss": avg_loss,
+            "train_accuracy": train_accuracy,
+            "train_f1": train_f1,
+            "val_loss": avg_val_loss,
+            "val_accuracy": val_accuracy,
+            "val_f1": val_f1
         })
+        # 保存模型权重到 W&B
+        wandb.save('best_model_co.pth')
 
+    # 调整学习率
+    scheduler.step(avg_val_loss)
+
+    # 使用早停机制
+    early_stopping(avg_val_loss, model, epoch, val_accuracy, train_loader, learning_rate, weight_decay)
+
+    if early_stopping.early_stop:
+        print("Early stopping")
+        break
+    free_memory(inputs, targets, outputs)
+
+# 打印预测结果的示例
+print(f'Sample predictions: {y_pred_ft[:10]}')

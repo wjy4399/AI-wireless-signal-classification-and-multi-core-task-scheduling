@@ -12,10 +12,11 @@ class MessageTask:
         self.exeTime = 0
         self.deadLine = 0
         self.startTime = 0
+        self.reserveTime =0
+        self.latest_start_time=0
 
 
 MAX_USER_ID = 10005
-MAX_Continuous_Affinity = 2
 
 def main():
     # 1. 读取任务数、核数、系统最大执行时间
@@ -66,105 +67,119 @@ def main():
                 elif current_match_count == best_match_count and core_endtime[i] < min_endtime:
                     min_endtime = core_endtime[i]
                     best_core = i
-
             if best_core is None or (core_task_counts[best_core] - min(core_task_counts)) > min(core_task_counts) and (core_task_counts[best_core] - min(core_task_counts)) > 50:
                 best_core = core_task_counts.index(min(core_task_counts))
 
         # 分配任务
         for task_index, task in enumerate(user_task):
-            latest_start_time = task.deadLine - task.exeTime
+            task.latest_start_time = task.deadLine - task.exeTime
+            task.reserveTime = task.deadLine
+            found_spot = False
 
-            if task_index == 0:  # 处理该用户的第一个任务
-                if core_endtime[best_core] <= latest_start_time:
-                    cores[best_core].append(task)
-                    core_endtime[best_core] += task.exeTime
-                    task.startTime = core_endtime[best_core]
-                else:
-                    found_spot = False
+            if core_endtime[best_core] == 0:
+                cores[best_core].append(task)
+                task.startTime = 0
+                core_endtime[best_core] += task.exeTime
+                task.reserveTime = task.deadLine - task.exeTime
+            else:
+                if task_index == 0:  # 处理该用户的第一个任务
+                    if core_endtime[best_core] <= task.latest_start_time:
+                        for j in range(len(cores[best_core]) - 1, -1, -1):
+                            if cores[best_core][j].reserveTime > task.exeTime:
+                                cores[best_core][j].startTime += task.exeTime
+                                cores[best_core][j].reserveTime -= task.exeTime
+                                consecutive_count = 0
+                                if cores[best_core][j].msgType == task.msgType:
+                                    consecutive_count += 1
+                                    cores[best_core].insert(j + 1, task)
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    for k in range(j + 1, len(cores[best_core])):
+                                        cores[best_core][k].startTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    found_spot = True
+                                    break
+                        if not found_spot:
+                            cores[best_core].append(task)
+                            task.startTime = core_endtime[best_core]
+                            core_endtime[best_core] += task.exeTime
+                    else:
+                        for j in range(len(cores[best_core]) - 1, -1, -1):
+                            if cores[best_core][j].startTime <= task.latest_start_time:
+                                consecutive_count = 0
+                                for k in range(j, -1, -1):
+                                    if cores[best_core][k].msgType == task.msgType:
+                                        consecutive_count += 1
+                                    else:
+                                        break
+                                if consecutive_count <= 4:
+                                    cores[best_core].insert(j + 1, task)
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    for k in range(j + 1, len(cores[best_core])):
+                                        cores[best_core][k].startTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    found_spot = True
+                                    break
+                        if not found_spot:
+                            cores[best_core].insert(0, task)
+                            task.startTime = core_endtime[best_core]
+                            core_endtime[best_core] += task.exeTime
+                else:  # 处理该用户的第n个任务，n不等于1
+                    last_user_task_index = None
                     for j in range(len(cores[best_core]) - 1, -1, -1):
-                        if cores[best_core][j].startTime <= latest_start_time:
-                            for k in range(j, -1, -1):
-                                consecutive_count = 0
-                                if cores[best_core][k].msgType == task.msgType:
-                                    consecutive_count += 1
-                                    for l in range(k - 1, -1, -1):
-                                        if cores[best_core][l].msgType == task.msgType:
-                                            consecutive_count += 1
-                                        else:
-                                            break
-                                    if consecutive_count <= MAX_Continuous_Affinity:
-                                        cores[best_core].insert(k + 1, task)
-                                        for l in range(k + 2, len(cores[best_core])):
-                                            cores[best_core][l].startTime += task.exeTime
-                                        core_endtime[best_core] += task.exeTime
-                                        task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
-                                        found_spot = True
-                                        break
-
-                            if not found_spot:
-                                cores[best_core].insert(j + 1, task)
-                                for l in range(j + 2, len(cores[best_core])):
-                                    cores[best_core][l].startTime += task.exeTime
-                                core_endtime[best_core] += task.exeTime
-                                task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
-                                found_spot = True
+                        if cores[best_core][j].usrInst == task.usrInst:
+                            last_user_task_index = j
                             break
-                    if not found_spot:
-                        cores[best_core].insert(0, task)
+                    if core_endtime[best_core] == cores[best_core][last_user_task_index].startTime + cores[best_core][
+                        last_user_task_index].exeTime:
+                        cores[best_core].insert(last_user_task_index + 1, task)
                         task.startTime = core_endtime[best_core]
                         core_endtime[best_core] += task.exeTime
-            else:  # 处理该用户的第n个任务，n不等于1
-                last_user_task_index = None
-                for j in range(len(cores[best_core]) - 1, -1, -1):
-                    if cores[best_core][j].usrInst == task.usrInst:
-                        last_user_task_index = j
-                        break
-
-                if core_endtime[best_core] <= latest_start_time:
-                    cores[best_core].append(task)
-                    task.startTime = core_endtime[best_core]
-                    core_endtime[best_core] += task.exeTime
-                else:
-                    found_spot = False
-                    for j in range(len(cores[best_core]) - 1, last_user_task_index - 1, -1):
-                        if cores[best_core][j].startTime <= latest_start_time:
-                            for k in range(j, last_user_task_index - 1, -1):
+                    elif core_endtime[best_core] <= task.latest_start_time:
+                        for j in range(len(cores[best_core]) - 1, last_user_task_index - 1, -1):
+                            if cores[best_core][j].reserveTime > task.exeTime:
+                                cores[best_core][j].startTime += task.exeTime
+                                cores[best_core][j].reserveTime -= task.exeTime
                                 consecutive_count = 0
-                                if cores[best_core][k].msgType == task.msgType:
+                                if cores[best_core][j].msgType == task.msgType:
                                     consecutive_count += 1
-                                    for l in range(k - 1, last_user_task_index - 1, -1):
-                                        if cores[best_core][l].msgType == task.msgType:
-                                            consecutive_count += 1
-                                        else:
-                                            break
-                                    if consecutive_count <= MAX_Continuous_Affinity:
-                                        cores[best_core].insert(k + 1, task)
-                                        for l in range(k + 2, len(cores[best_core])):
-                                            cores[best_core][l].startTime += task.exeTime
-                                        found_spot = True
-                                        core_endtime[best_core] += task.exeTime
-                                        task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
+                                    cores[best_core].insert(j + 1, task)
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    for k in range(j + 1, len(cores[best_core])):
+                                        cores[best_core][k].startTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    found_spot = True
+                                    break
+                        if not found_spot:
+                            cores[best_core].append(task)
+                            task.startTime = core_endtime[best_core]
+                            core_endtime[best_core] += task.exeTime
+                    else:
+                        for j in range(len(cores[best_core]) - 1, last_user_task_index - 1, -1):
+                            if cores[best_core][j].startTime <= task.latest_start_time:
+                                consecutive_count = 0
+                                for k in range(j, last_user_task_index - 1, -1):
+                                    if cores[best_core][k].msgType == task.msgType:
+                                        consecutive_count += 1
+                                    else:
                                         break
+                                if consecutive_count <= 4:
+                                    cores[best_core].insert(j + 1, task)
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    for k in range(j + 1, len(cores[best_core])):
+                                        cores[best_core][k].startTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    found_spot = True
+                                    break
+                        if not found_spot:
+                            cores[best_core].insert(last_user_task_index + 1, task)
+                            task.startTime = core_endtime[best_core]
+                            core_endtime[best_core] += task.exeTime
 
-                            if not found_spot:
-                                cores[best_core].insert(j + 1, task)
-                                for l in range(j + 2, len(cores[best_core])):
-                                    cores[best_core][l].startTime += task.exeTime
-                                core_endtime[best_core] += task.exeTime
-                                task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
-                                found_spot = True
-                            break
-                    if not found_spot:
-                        cores[best_core].append(task)
-                        task.startTime = core_endtime[best_core]
-                        core_endtime[best_core] += task.exeTime
-
-
-                        # 更新核的任务计数和结束时间
+            # 更新核的任务计数和结束时间
             core_task_counts[best_core] += 1
-            core_endtime[best_core] = max(core_endtime[best_core], task.deadLine)
+            core_endtime[best_core] = max(core_endtime[best_core], task.startTime + task.exeTime)
 
-        # 检查任务数量差异
+            # 检查任务数量差异
         max_tasks = max(core_task_counts)
         min_tasks = min(core_task_counts)
         if max_tasks - min_tasks > 100:
