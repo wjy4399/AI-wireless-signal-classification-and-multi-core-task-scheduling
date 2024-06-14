@@ -1,6 +1,5 @@
 import math
 
-
 def read_input_data(input_file):
     with open(input_file, 'r') as f:
         lines = f.readlines()
@@ -11,7 +10,6 @@ def read_input_data(input_file):
         tasks.append(list(map(int, line.split())))
 
     return n, m, c, tasks
-
 
 def read_output_data(output_file):
     with open(output_file, 'r') as f:
@@ -26,7 +24,6 @@ def read_output_data(output_file):
 
     return cores
 
-
 def adjust_execution_time(tasks, accuracy):
     adjusted_tasks = []
     adjustment_factor = 2 - accuracy ** 2
@@ -36,12 +33,12 @@ def adjust_execution_time(tasks, accuracy):
         adjusted_tasks.append([msg_type, usr_inst, adjusted_exe_time, deadline])
     return adjusted_tasks
 
-
 def check_constraints(n, m, c, tasks, cores):
     task_dict = {(task[0], task[1]): (task[2], task[3]) for task in tasks}
     user_task_completion_time = {}
     user_core_assignment = {}
     current_time = [0] * m
+    incomplete_tasks = []
 
     for core_id, core in enumerate(cores):
         for task_idx, task in enumerate(core):
@@ -69,6 +66,9 @@ def check_constraints(n, m, c, tasks, cores):
 
             user_task_completion_time[usr_inst].append((current_time[core_id], deadline))
 
+            if current_time[core_id] > deadline:
+                incomplete_tasks.append((msg_type, usr_inst, exe_time, deadline))
+
     # Check that tasks for the same user instance are in correct order across all cores
     for usr_inst, times in user_task_completion_time.items():
         times.sort(key=lambda x: x[1])  # Sort by deadline
@@ -80,8 +80,13 @@ def check_constraints(n, m, c, tasks, cores):
     if total_tasks_assigned != n:
         return False, f"Not all tasks are assigned. Expected {n}, but got {total_tasks_assigned}."
 
-    return True, "All constraints satisfied."
+    if incomplete_tasks:
+        print("Incomplete Tasks:")
+        for task in incomplete_tasks:
+            print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}")
+        return True, "There are incomplete tasks."
 
+    return True, "All constraints satisfied."
 
 def calculate_scores(n, m, c, tasks, cores):
     affinity_score = 0
@@ -112,11 +117,10 @@ def calculate_scores(n, m, c, tasks, cores):
 
     return normalized_score, affinity_score, completed_tasks
 
-
 # Example usage:
 input_file = 'dataset/多核任务调度数据集/case2.txt'
 
-for i in range(7):
+for i in range(8):
     output_file = f'result/output{i}.txt'  # Replace with your output file
     accuracy = 0.8
     if i == 0:
@@ -132,7 +136,9 @@ for i in range(7):
     elif i == 5:
         print('__________________动态调整__________________')
     elif i == 6:
-        print('__________________动态调整__________________')
+        print('__________________用户服务总时间排序__________________')
+    elif i == 7:
+        print('__________________用户服务平均时间排序__________________')
     n, m, c, tasks = read_input_data(input_file)
     tasks = adjust_execution_time(tasks, accuracy)
     cores = read_output_data(output_file)

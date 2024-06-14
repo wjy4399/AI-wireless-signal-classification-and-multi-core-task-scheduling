@@ -89,41 +89,44 @@ def main():
             task.latest_start_time = task.deadLine - task.exeTime
             task.reserveTime = task.deadLine
             found_spot = False
+
             if core_endtime[best_core] == 0:
                 cores[best_core].insert(0, task)
                 task.startTime = 0
                 core_endtime[best_core] += task.exeTime
                 task.reserveTime = task.deadLine - task.exeTime
                 print(f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} 插入核{best_core}第0位  核任务为0")
-
             else:
                 if task_index == 0:  # 处理该用户的第一个任务
                     if core_endtime[best_core] <= task.latest_start_time:
                         for j in range(len(cores[best_core]) - 1, -1, -1):
                             if cores[best_core][j].reserveTime > task.exeTime:
-                                cores[best_core][j].startTime = cores[best_core][j].startTime + task.exeTime
-                                cores[best_core][j].reserveTime = cores[best_core][j].reserveTime - task.exeTime
+                                cores[best_core][j].startTime += task.exeTime
+                                cores[best_core][j].reserveTime -= task.exeTime
                                 consecutive_count = 0
                                 if cores[best_core][j].msgType == task.msgType:
-                                        consecutive_count += 1
-                                        cores[best_core].insert(j + 1, task)
-                                        print(f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位   {core_endtime[best_core]}<={task.latest_start_time} 匹配亲和")
-                                        cores[best_core][j].startTime = cores[best_core][j].startTime - task.exeTime
-                                        cores[best_core][j].reserveTime = cores[best_core][j].reserveTime + task.exeTime
-                                        core_endtime[best_core] += task.exeTime
-                                        task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
-                                        found_spot = True
-                                        break
+                                    consecutive_count += 1
+                                    cores[best_core].insert(j + 1, task)
+                                    print(
+                                        f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位   {core_endtime[best_core]}<={task.latest_start_time} 匹配亲和")
+                                    cores[best_core][j].startTime -= task.exeTime
+                                    cores[best_core][j].reserveTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    found_spot = True
+                                    break
                             else:
                                 cores[best_core].insert(j + 1, task)
-                                print(f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位 {core_endtime[best_core]}<={task.latest_start_time} 第{j}位{cores[best_core][j].msgType} {cores[best_core][j].usrInst}富余时间不够")
+                                print(
+                                    f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位 {core_endtime[best_core]}<={task.latest_start_time} 第{j}位{cores[best_core][j].msgType} {cores[best_core][j].usrInst}富余时间不够")
                                 core_endtime[best_core] += task.exeTime
                                 task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
                                 found_spot = True
                                 break
                         if not found_spot:
-                            cores[best_core].insert(0 , task)
-                            print(f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第0位   {core_endtime[best_core]}<={task.latest_start_time}  不亲和， 其他任务富余时间够")
+                            cores[best_core].insert(0, task)
+                            print(
+                                f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第0位   {core_endtime[best_core]}<={task.latest_start_time}  不亲和， 其他任务富余时间够")
                             task.startTime = 0
                             task.reserveTime = task.deadLine - task.exeTime
                             core_endtime[best_core] += task.exeTime
@@ -139,32 +142,32 @@ def main():
                                     if found_spot:
                                         break
                                     if cores[best_core][k].reserveTime > task.exeTime:
-                                        cores[best_core][k].startTime = cores[best_core][k].startTime + task.exeTime
-                                        cores[best_core][k].reserveTime = cores[best_core][k].reserveTime - task.exeTime
+                                        cores[best_core][k].startTime += task.exeTime
+                                        cores[best_core][k].reserveTime -= task.exeTime
                                         consecutive_count = 0
                                         if cores[best_core][k].msgType == task.msgType:
-                                                consecutive_count += 1
-                                                cores[best_core].insert(k + 1, task)
-                                                print(f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位  {core_endtime[best_core]}>{task.latest_start_time}  匹配亲和")
-                                                cores[best_core][k].startTime = cores[best_core][
-                                                                                    k].startTime - task.exeTime
-                                                cores[best_core][k].reserveTime = cores[best_core][
-                                                                                      k].reserveTime + task.exeTime
-                                                core_endtime[best_core] += task.exeTime
-                                                task.startTime = cores[best_core][k].startTime + cores[best_core][
-                                                    k].exeTime
-                                                found_spot = True
-                                                break
-                                    elif cores[best_core][k+1].reserveTime > task.exeTime:
-                                        cores[best_core].append(task)
-                                        print(f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{len(cores[best_core]) - 1}位(末尾） {core_endtime[best_core]}>{task.latest_start_time}  第{k}位{cores[best_core][k].msgType} {cores[best_core][k].usrInst}以及第{k+1}位{cores[best_core][k+1].msgType} {cores[best_core][k+1].usrInst}富余时间不够")
-                                        task.startTime = core_endtime[best_core]
+                                            consecutive_count += 1
+                                            cores[best_core].insert(k + 1, task)
+                                            print(
+                                                f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位  {core_endtime[best_core]}>{task.latest_start_time}  匹配亲和")
+                                            cores[best_core][k].startTime -= task.exeTime
+                                            cores[best_core][k].reserveTime += task.exeTime
+                                            core_endtime[best_core] += task.exeTime
+                                            task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
+                                            found_spot = True
+                                            break
+                                    else:
+                                        cores[best_core].insert(k + 1, task)
+                                        print(
+                                            f" 用户的第{task_index}个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位 {core_endtime[best_core]}>{task.latest_start_time}  第{k}位{cores[best_core][k].msgType} {cores[best_core][k].usrInst}富余时间不够")
                                         core_endtime[best_core] += task.exeTime
+                                        task.startTime += cores[best_core][k].exeTime
                                         found_spot = True
                                         break
                                 if not found_spot:
                                     cores[best_core].insert(0, task)
-                                    print(f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} {core_endtime[best_core]}>{task.latest_start_time} 插入核{best_core}第0位")
+                                    print(
+                                        f" 用户的第{task_index}个任务 {task.msgType} {task.usrInst} {core_endtime[best_core]}>{task.latest_start_time} 插入核{best_core}第0位")
                                     task.startTime = 0
                                     task.reserveTime = task.deadLine - task.exeTime
                                     core_endtime[best_core] += task.exeTime
@@ -176,30 +179,31 @@ def main():
                         if cores[best_core][j].usrInst == task.usrInst:
                             last_user_task_index = j
                             break
-                    if core_endtime[best_core]==cores[best_core][last_user_task_index].startTime+cores[best_core][last_user_task_index].exeTime:
+                    if core_endtime[best_core] == cores[best_core][last_user_task_index].startTime + cores[best_core][
+                        last_user_task_index].exeTime:
                         cores[best_core].insert(last_user_task_index + 1, task)
-                        print(f" 用户的第{task_index} n个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{last_user_task_index + 1}位  最后一位等于上一个任务  {cores[best_core][last_user_task_index].msgType} {cores[best_core][last_user_task_index].usrInst} ")
+                        print(
+                            f" 用户的第{task_index} n个任务 {task.msgType} {task.usrInst} 插入核{best_core}第{last_user_task_index + 1}位  最后一位等于上一个任务  {cores[best_core][last_user_task_index].msgType} {cores[best_core][last_user_task_index].usrInst} ")
                         task.startTime = core_endtime[best_core]
                         core_endtime[best_core] += task.exeTime
                         continue
                     if core_endtime[best_core] <= task.latest_start_time:
                         for j in range(len(cores[best_core]) - 1, last_user_task_index - 1, -1):
                             if cores[best_core][j].reserveTime > task.exeTime:
-                                cores[best_core][j].startTime = cores[best_core][j].startTime + task.exeTime
-                                cores[best_core][j].reserveTime = cores[best_core][j].reserveTime - task.exeTime
+                                cores[best_core][j].startTime += task.exeTime
+                                cores[best_core][j].reserveTime -= task.exeTime
                                 consecutive_count = 0
                                 if cores[best_core][j].msgType == task.msgType:
-                                        consecutive_count += 1
-                                        cores[best_core].insert(j + 1, task)
-                                        print(f" 用户的第{task_index} n 个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位 亲和 {core_endtime[best_core]}<={task.latest_start_time} ")
-                                        cores[best_core][j].startTime = cores[best_core][
-                                                                            j].startTime - task.exeTime
-                                        cores[best_core][j].reserveTime = cores[best_core][
-                                                                              j].reserveTime + task.exeTime
-                                        core_endtime[best_core] += task.exeTime
-                                        task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
-                                        found_spot = True
-                                        break
+                                    consecutive_count += 1
+                                    cores[best_core].insert(j + 1, task)
+                                    print(
+                                        f" 用户的第{task_index} n 个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{j + 1}位 亲和 {core_endtime[best_core]}<={task.latest_start_time} ")
+                                    cores[best_core][j].startTime -= task.exeTime
+                                    cores[best_core][j].reserveTime += task.exeTime
+                                    core_endtime[best_core] += task.exeTime
+                                    task.startTime = cores[best_core][j].startTime + cores[best_core][j].exeTime
+                                    found_spot = True
+                                    break
                             else:
                                 cores[best_core].insert(j + 1, task)
                                 print(
@@ -210,14 +214,14 @@ def main():
                                 break
 
                         if not found_spot:
-                            cores[best_core].insert(last_user_task_index+1 , task)
-                            print(f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{last_user_task_index+1}位   {core_endtime[best_core]}<={task.latest_start_time}  不亲和 其他任务富余时间够  循环到该用户上个任务的下一位")
-                            cores[best_core][last_user_task_index].startTime = cores[best_core][
-                                                                last_user_task_index].startTime - task.exeTime
-                            cores[best_core][last_user_task_index].reserveTime = cores[best_core][
-                                                                  last_user_task_index].reserveTime + task.exeTime
+                            cores[best_core].insert(last_user_task_index + 1, task)
+                            print(
+                                f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{last_user_task_index + 1}位   {core_endtime[best_core]}<={task.latest_start_time}  不亲和 其他任务富余时间够  循环到该用户上个任务的下一位")
+                            cores[best_core][last_user_task_index].startTime -= task.exeTime
+                            cores[best_core][last_user_task_index].reserveTime += task.exeTime
                             core_endtime[best_core] += task.exeTime
-                            task.startTime = cores[best_core][last_user_task_index].startTime + cores[best_core][last_user_task_index].exeTime
+                            task.startTime = cores[best_core][last_user_task_index].startTime + cores[best_core][
+                                last_user_task_index].exeTime
                             found_spot = True
 
                     else:
@@ -230,45 +234,42 @@ def main():
                                     if found_spot:
                                         break
                                     if cores[best_core][k].reserveTime > task.exeTime:
-                                        cores[best_core][k].startTime = cores[best_core][k].startTime + task.exeTime
-                                        cores[best_core][k].reserveTime = cores[best_core][k].reserveTime - task.exeTime
+                                        cores[best_core][k].startTime += task.exeTime
+                                        cores[best_core][k].reserveTime -= task.exeTime
                                         consecutive_count = 0
                                         if cores[best_core][k].msgType == task.msgType:
-                                                consecutive_count += 1
+                                            consecutive_count += 1
 
-                                                cores[best_core].insert(k + 1, task)
-                                                print(
-                                                    f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位  {core_endtime[best_core]}>{task.latest_start_time}  匹配亲和")
-                                                cores[best_core][k].startTime = cores[best_core][
-                                                                                    k].startTime - task.exeTime
-                                                cores[best_core][k].reserveTime = cores[best_core][
-                                                                                      k].reserveTime + task.exeTime
-                                                core_endtime[best_core] += task.exeTime
-                                                task.startTime = cores[best_core][k].startTime + cores[best_core][
-                                                    k].exeTime
-                                                found_spot = True
-                                                break
+                                            cores[best_core].insert(k + 1, task)
+                                            print(
+                                                f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位  {core_endtime[best_core]}>{task.latest_start_time}  匹配亲和")
+                                            cores[best_core][k].startTime -= task.exeTime
+                                            cores[best_core][k].reserveTime += task.exeTime
+                                            core_endtime[best_core] += task.exeTime
+                                            task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
+                                            found_spot = True
+                                            break
                                     else:
                                         cores[best_core].insert(k + 1, task)
-                                        print(f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位 {core_endtime[best_core]}>{task.latest_start_time}  第{k}位{cores[best_core][k].msgType} {cores[best_core][k].usrInst}富余时间不够")
-
+                                        print(
+                                            f" 用户的第{task_index} n个任务  {task.msgType} {task.usrInst} 插入核{best_core}第{k + 1}位 {core_endtime[best_core]}>{task.latest_start_time}  第{k}位{cores[best_core][k].msgType} {cores[best_core][k].usrInst}富余时间不够")
                                         core_endtime[best_core] += task.exeTime
                                         task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
                                         found_spot = True
                                         break
                                 if not found_spot:
-                                    cores[best_core].insert(last_user_task_index+1, task)
-                                    print(f" 用户的第{task_index} n个任务 {task.msgType} {task.usrInst} {core_endtime[best_core]}>{task.latest_start_time} 插入核{best_core}第{last_user_task_index+1}位，该用户上一个任务的后面")
-                                    cores[best_core][k].startTime = cores[best_core][
-                                                                        last_user_task_index].startTime - task.exeTime
-                                    cores[best_core][k].reserveTime = cores[best_core][
-                                                                          last_user_task_index].reserveTime + task.exeTime
+                                    cores[best_core].insert(last_user_task_index + 1, task)
+                                    print(
+                                        f" 用户的第{task_index} n个任务 {task.msgType} {task.usrInst} {core_endtime[best_core]}>{task.latest_start_time} 插入核{best_core}第{last_user_task_index + 1}位，该用户上一个任务的后面")
+                                    cores[best_core][k].startTime -= task.exeTime
+                                    cores[best_core][k].reserveTime += task.exeTime
                                     core_endtime[best_core] += task.exeTime
-                                    task.startTime = cores[best_core][last_user_task_index].startTime + cores[best_core][last_user_task_index].exeTime
+                                    task.startTime = cores[best_core][last_user_task_index].startTime + \
+                                                     cores[best_core][last_user_task_index].exeTime
                                     found_spot = True
                                     break
 
-                            # 更新核的任务计数和结束时间
+            # 更新核的任务计数和结束时间
             core_task_counts[best_core] += 1
         # 检查任务数量差异
         max_tasks = max(core_task_counts)
