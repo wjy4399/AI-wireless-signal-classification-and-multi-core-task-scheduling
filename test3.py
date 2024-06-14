@@ -30,24 +30,9 @@ def main():
         task.msgType, task.usrInst, task.exeTime, task.deadLine = msgType, usrInst, exeTime, deadLine
         tasks[usrInst].append(task)
 
-    # 3. 计算每个用户的任务总执行时间
-    user_avg_exe_time = []
-    for uid in range(MAX_USER_ID):
-        if tasks[uid]:
-            total_exe_time = sum(task.exeTime for task in tasks[uid])
-            avg_exe_time = total_exe_time / len(tasks[uid])
-            first_deadline = tasks[uid][0].deadLine
-            user_avg_exe_time.append((uid, avg_exe_time, first_deadline))
-
-    # 4. 根据平均执行时间和第一个任务的截止时间对用户进行排序
-    user_avg_exe_time.sort(key=lambda x: (x[1], x[2]))
-
-    # 5. 生成 user_tasks 并根据平均执行时间和第一个任务的截止时间进行排序
-    user_tasks = [tasks[uid] for uid, _, _ in user_avg_exe_time]
-
-    # 6. 输出排序后的用户及其平均执行时间
-    for uid, avg_exe_time, first_deadline in user_avg_exe_time:
-        print(f"User {uid} - Average Execution Time: {avg_exe_time:.2f} - First Deadline: {first_deadline}")
+    # 3. 按照用户第一个任务的截止时间对用户进行排序
+    user_tasks = [tasks[uid] for uid in range(MAX_USER_ID) if tasks[uid]]
+    user_tasks.sort(key=lambda t: t[0].deadLine)
 
     # 4. 初始化每个核的任务队列和最终完成时间
     cores = [[] for _ in range(m)]
