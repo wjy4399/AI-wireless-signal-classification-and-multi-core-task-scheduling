@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/Deep-Learning-Based-Radio-Signal-Classification" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/ResNet-for-Radio-Recognition" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ResNet-for-Radio-Recognition" vcs="" />
   </component>
 </project>
