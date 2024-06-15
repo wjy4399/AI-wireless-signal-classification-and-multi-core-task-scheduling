@@ -15,7 +15,7 @@ class MessageTask:
 
 
 MAX_USER_ID = 10005
-MAX_Continuous_Affinity = 2
+MAX_Continuous_Affinity = 8
 
 def main():
     # 1. 读取任务数、核数、系统最大执行时间
@@ -87,20 +87,36 @@ def main():
                                 consecutive_count = 0
                                 if cores[best_core][k].msgType == task.msgType:
                                     consecutive_count += 1
-                                    for l in range(k - 1, -1, -1):
-                                        if cores[best_core][l].msgType == task.msgType:
-                                            consecutive_count += 1
-                                        else:
-                                            break
-                                    if consecutive_count <= MAX_Continuous_Affinity:
-                                        cores[best_core].insert(k + 1, task)
-                                        for l in range(k + 2, len(cores[best_core])):
-                                            cores[best_core][l].startTime += task.exeTime
-                                        core_endtime[best_core] += task.exeTime
-                                        task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
-                                        found_spot = True
-                                        break
+                                    if cores[best_core][k].startTime + cores[best_core][k].exeTime+task.exeTime < cores[best_core][
+                                        k].deadLine:
+                                        for l in range(k - 1, -1, -1):
+                                            if cores[best_core][l].msgType == task.msgType:
+                                                consecutive_count += 1
 
+                                            else:
+                                                break
+                                        if consecutive_count <= MAX_Continuous_Affinity:
+                                            cores[best_core].insert(k , task)
+                                            for l in range(k + 1, len(cores[best_core])):
+                                                cores[best_core][l].startTime += task.exeTime
+                                            core_endtime[best_core] += task.exeTime
+                                            task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
+                                            found_spot = True
+                                            break
+                                    else:
+                                        for l in range(k - 1, -1, -1):
+                                            if cores[best_core][l].msgType == task.msgType:
+                                                consecutive_count += 1
+                                            else:
+                                                break
+                                        if consecutive_count <= MAX_Continuous_Affinity:
+                                            cores[best_core].insert(k + 1, task)
+                                            for l in range(k + 2, len(cores[best_core])):
+                                                cores[best_core][l].startTime += task.exeTime
+                                            core_endtime[best_core] += task.exeTime
+                                            task.startTime = cores[best_core][k].startTime + cores[best_core][k].exeTime
+                                            found_spot = True
+                                            break
                             if not found_spot:
                                 cores[best_core].insert(j + 1, task)
                                 for l in range(j + 2, len(cores[best_core])):

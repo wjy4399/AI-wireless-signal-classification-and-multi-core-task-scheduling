@@ -12,7 +12,7 @@ class MessageTask:
         self.endTime = 0
 
 MAX_USER_ID = 10005
-ACCURACY = 0.65
+ACCURACY = 0.77
 
 def adjust_execution_time(exeTime, accuracy):
     adjusted_time = exeTime * (2 - accuracy * accuracy)

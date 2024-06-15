@@ -1,4 +1,6 @@
 import math
+import os
+
 
 def read_input_data(input_file):
     with open(input_file, 'r') as f:
@@ -80,11 +82,11 @@ def check_constraints(n, m, c, tasks, cores):
     if total_tasks_assigned != n:
         return False, f"Not all tasks are assigned. Expected {n}, but got {total_tasks_assigned}."
 
-    if incomplete_tasks:
-        print("Incomplete Tasks:")
-        for task in incomplete_tasks:
-            print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}")
-        return True, "There are incomplete tasks."
+    # if incomplete_tasks:
+    #     print("Incomplete Tasks:")
+    #     for task in incomplete_tasks:
+    #         print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}")
+    #     return True, "There are incomplete tasks."
 
     return True, "All constraints satisfied."
 
@@ -119,35 +121,25 @@ def calculate_scores(n, m, c, tasks, cores):
 
 # Example usage:
 input_file = 'dataset/多核任务调度数据集/case2.txt'
+output_files = f'result-case2'
+accuracy = 0.8
+for root, dirs, files in os.walk(output_files):
+        # 遍历文件
+        for file in files:
+            # 检查文件是否是txt文件
+            if file.endswith(".txt"):
+                output_name=os.path.splitext(file)[0]
+                print(f'__________________{output_name}__________________')
+                output_file = f'{output_files}/{file}'  # Replace with your output file
+                n, m, c, tasks = read_input_data(input_file)
+                tasks = adjust_execution_time(tasks, accuracy)
+                cores = read_output_data(output_file)
 
-for i in range(8):
-    output_file = f'result/output{i}.txt'  # Replace with your output file
-    accuracy = 0.8
-    if i == 0:
-        print('__________________遗传算法__________________')
-    elif i == 1:
-        print('__________________贪心算法__________________')
-    elif i == 2:
-        print('__________________负载均衡__________________')
-    elif i == 3:
-        print('__________________完成优先策略__________________')
-    elif i == 4:
-        print('__________________亲和度优先策略__________________')
-    elif i == 5:
-        print('__________________动态调整__________________')
-    elif i == 6:
-        print('__________________用户服务总时间排序__________________')
-    elif i == 7:
-        print('__________________用户服务平均时间排序__________________')
-    n, m, c, tasks = read_input_data(input_file)
-    tasks = adjust_execution_time(tasks, accuracy)
-    cores = read_output_data(output_file)
-
-    constraints_satisfied, message = check_constraints(n, m, c, tasks, cores)
-    if constraints_satisfied:
-        score, affinity_score, completed_tasks = calculate_scores(n, m, c, tasks, cores)
-        print(f"Final Score: {score}")
-        print(f"Affinity Score: {affinity_score}")
-        print(f"Completed Tasks: {completed_tasks}")
-    else:
-        print(f"Final Score: 0 (Constraints not satisfied: {message})")
+                constraints_satisfied, message = check_constraints(n, m, c, tasks, cores)
+                if constraints_satisfied:
+                    score, affinity_score, completed_tasks = calculate_scores(n, m, c, tasks, cores)
+                    print(f"Final Score: {score}")
+                    print(f"Affinity Score: {affinity_score}")
+                    print(f"Completed Tasks: {completed_tasks}")
+                else:
+                    print(f"Final Score: 0 (Constraints not satisfied: {message})")
