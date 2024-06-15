@@ -1,7 +1,6 @@
 import math
 import os
 
-
 def read_input_data(input_file):
     with open(input_file, 'r') as f:
         lines = f.readlines()
@@ -69,7 +68,7 @@ def check_constraints(n, m, c, tasks, cores):
             user_task_completion_time[usr_inst].append((current_time[core_id], deadline))
 
             if current_time[core_id] > deadline:
-                incomplete_tasks.append((msg_type, usr_inst, exe_time, deadline))
+                incomplete_tasks.append((msg_type, usr_inst, exe_time, deadline, current_time[core_id]))
 
     # Check that tasks for the same user instance are in correct order across all cores
     for usr_inst, times in user_task_completion_time.items():
@@ -82,11 +81,11 @@ def check_constraints(n, m, c, tasks, cores):
     if total_tasks_assigned != n:
         return False, f"Not all tasks are assigned. Expected {n}, but got {total_tasks_assigned}."
 
-    # if incomplete_tasks:
-    #     print("Incomplete Tasks:")
-    #     for task in incomplete_tasks:
-    #         print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}")
-    #     return True, "There are incomplete tasks."
+    if incomplete_tasks:
+        print("Incomplete Tasks:")
+        for task in incomplete_tasks:
+            print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}, actual_completion_time: {task[4]}")
+        return True, "There are incomplete tasks."
 
     return True, "All constraints satisfied."
 
@@ -129,13 +128,14 @@ for root, dirs, files in os.walk(output_files):
             # 检查文件是否是txt文件
             if file.endswith(".txt"):
                 output_name=os.path.splitext(file)[0]
-                print(f'__________________{output_name}__________________')
+
                 output_file = f'{output_files}/{file}'  # Replace with your output file
                 n, m, c, tasks = read_input_data(input_file)
                 tasks = adjust_execution_time(tasks, accuracy)
                 cores = read_output_data(output_file)
 
                 constraints_satisfied, message = check_constraints(n, m, c, tasks, cores)
+                print(f'__________________{output_name}__________________')
                 if constraints_satisfied:
                     score, affinity_score, completed_tasks = calculate_scores(n, m, c, tasks, cores)
                     print(f"Final Score: {score}")
