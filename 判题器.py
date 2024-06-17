@@ -81,11 +81,11 @@ def check_constraints(n, m, c, tasks, cores):
     if total_tasks_assigned != n:
         return False, f"Not all tasks are assigned. Expected {n}, but got {total_tasks_assigned}."
 
-    if incomplete_tasks:
-        print("Incomplete Tasks:")
-        for task in incomplete_tasks:
-            print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}, actual_completion_time: {task[4]}")
-        return True, "There are incomplete tasks."
+    # if incomplete_tasks:
+    #     print("Incomplete Tasks:")
+    #     for task in incomplete_tasks:
+    #         print(f"msg_type: {task[0]}, usr_inst: {task[1]}, exe_time: {task[2]}, deadline: {task[3]}, actual_completion_time: {task[4]}")
+    #     return True, "There are incomplete tasks."
 
     return True, "All constraints satisfied."
 
@@ -121,7 +121,7 @@ def calculate_scores(n, m, c, tasks, cores):
 # Example usage:
 input_file = 'dataset/多核任务调度数据集/case2.txt'
 output_files = f'result-case2'
-accuracy = 0.8
+accuracy = 1
 for root, dirs, files in os.walk(output_files):
         # 遍历文件
         for file in files:

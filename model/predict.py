@@ -1,71 +1,52 @@
+import torch
+import pandas as pd
+from torch.utils.data import DataLoader, Dataset
 import os
 import re
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.metrics import f1_score
-import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-import pandas as pd
-import wandb
-import joblib
-flag=1
-if os.path.exists('best_model_info_co1.txt'):
-    with open('best_model_info_co.txt', 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            if line.startswith('dim_model'):
-                dim_model = int(line.split(': ')[1])
-            if line.startswith('num_heads'):
-                num_heads = int(line.split(': ')[1])
-            if line.startswith('num_layers'):
-                num_layers = int(line.split(': ')[1])
-            if line.startswith('dropout'):
-                dropout = float(line.split(': ')[1])
-            if line.startswith('Learning rate'):
-                learning_rate = float(line.split(': ')[1])
-            if line.startswith('Weight decay'):
-                weight_decay = float(line.split(': ')[1])
-            if line.startswith('Batch size'):
-                batch_size = int(line.split(': ')[1])
-        flag=0
-if flag:
-    # 确保转换为整数的参数为整数
-    dim_model = int(64)
-    num_heads = int(2)
-    num_layers = int(1)
-    dropout = float(0.1)
-    learning_rate=1e-5
-    weight_decay=1e-5
-    batch_size=64
+from model import Model, EnhancedModel, CNN1, CNN2, CNN3
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'Using device: {device}')
 
-# 数据预处理函数
-def preprocess(folder_path, num_files=1400):
+def preprocess_test(folder_path):
+    # labels = []
     data = []
-    for i in range(num_files):
-        filename = f'{i}.bin'
-        with open(os.path.join(folder_path, filename), 'rb') as file:
-            data_row_bin = file.read()
-            data_row_float16 = np.frombuffer(data_row_bin, dtype=np.float16)
-            data_row_float32 = data_row_float16.astype(np.float32)  # 转换为 float32
-            paired_data = data_row_float32.reshape(15360, 2)  # 确保形状为 15360*2
-            data.append(paired_data)
-    return np.array(data)
+    cnt = 0
+    files = os.listdir(folder_path)
+    sorted_files = sorted(files, key=lambda x: int(os.path.splitext(x)[0]))
+    for file in sorted_files:
+        file_path = os.path.join(folder_path, file)
+        cnt += 1
+        if file_path.endswith(".bin"):
+            # match = re.search(r'label_(\d+)_', filename)
+            # if match:
+            #     label = int(match.group(1))
+            # else:
+            #     continue
+            with open(file_path, 'rb') as file:
+                data_row_bin = file.read()
+                # labels.append(label)
+                # 原始数据是float16，直接把二进制bin读成float16的数组
+                data_row_float16 = np.frombuffer(
+                    data_row_bin, dtype=np.float16)
+                data_row_float16 = np.array(data_row_float16)
+                data.append(data_row_float16)
+    return data
 
-# 加载测试集数据
-test_data_path = 'test_set'  # 替换为实际的测试集路径
-data_test = preprocess(test_data_path)
 
-# 加载标准化器
-scaler = joblib.load('scaler.pkl')
-data_reshaped = data_test.reshape(data_test.shape[0], -1)  # 将数据展平以进行标准化
-data_scaled = scaler.transform(data_reshaped).reshape(data_test.shape)  # 进行标准化并恢复形状
-# 创建自定义数据集
+# 修改为线下测试数据路径
+folder_path = "./data/z_test/"
+data = preprocess_test(folder_path)
+# czz 加载numpy
+loaded_arrays = np.load('pca_9600.npz')
+
+# 访问加载的数组
+# print(loaded_arrays['train_data'])
+# print(loaded_arrays['test_data'])
+data = loaded_arrays['test_data']
+print(f'length of dataset: {len(data)}')
+
+
 class ComplexDataset(Dataset):
     def __init__(self, data):
         self.data = data
@@ -74,179 +55,80 @@ class ComplexDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        sample_data = self.data[idx]
-        return torch.tensor(sample_data, dtype=torch.float32)
+        sample = {'data': torch.tensor(self.data[idx], dtype=torch.float32)}
+        return sample
 
-test_dataset = ComplexDataset(data_scaled)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-# 定义简化后的FT-Transformer模型
-class SimplifiedFTTransformer(nn.Module):
-    def __init__(self, input_dim, num_classes, dim_model=dim_model, num_heads=num_heads, num_layers=num_layers, dropout=dropout):
-        super(SimplifiedFTTransformer, self).__init__()
-        self.embedding = nn.Linear(input_dim, dim_model)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=dim_model, nhead=num_heads, dropout=dropout)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.classifier = nn.Linear(dim_model, num_classes)
+# 创建测试数据集实例
+test_dataset = ComplexDataset(data)
 
-    def forward(self, x):
-        batch_size, seq_len, feature_dim = x.shape
-        x = x.view(batch_size, -1)  # 展平特征维度
-        x = self.embedding(x)
-        x = self.transformer_encoder(x.unsqueeze(1))
-        x = x.mean(dim=1)
-        x = self.classifier(x)
-        return x
 
-# 加载最佳模型
-input_dim = data_scaled.shape[1] * data_scaled.shape[2]  # 展平后的输入维度
-num_classes = 11  # 假设类别数为11
-model = SimplifiedFTTransformer(input_dim=input_dim, num_classes=num_classes).to(device)
-model.load_state_dict(torch.load('best_model_co.pth'))
+def collate_fn(batch):
+    features = []
+    for _, item in enumerate(batch):
+        features.append(item['data'])
+    return torch.stack(features, 0)
 
-# 预测函数
-def predict(model, data_loader, device):
-    model.eval()
-    all_preds = []
-    with torch.no_grad():
-        for inputs in data_loader:
-            inputs = inputs.to(device)
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            all_preds.extend(preds.cpu().numpy())
-    return np.array(all_preds)
 
-# 进行预测
-predictions = predict(model, test_loader, device)
+# 构建test_loader
+test_loader = DataLoader(test_dataset, batch_size=32,
+                         shuffle=False, collate_fn=collate_fn)
 
-# 保存预测结果到CSV文件
-output_path = 'result.csv'
-df = pd.DataFrame(predictions, columns=['predictions'])
-df.to_csv(output_path, index=False, header=False)
-print(f'Predictions saved to {output_path}')
-import os
-import re
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.metrics import f1_score
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
-import pandas as pd
-import wandb
-import joblib
-flag=1
-if os.path.exists('best_model_info_co1.txt'):
-    with open('best_model_info_co.txt', 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            if line.startswith('dim_model'):
-                dim_model = int(line.split(': ')[1])
-            if line.startswith('num_heads'):
-                num_heads = int(line.split(': ')[1])
-            if line.startswith('num_layers'):
-                num_layers = int(line.split(': ')[1])
-            if line.startswith('dropout'):
-                dropout = float(line.split(': ')[1])
-            if line.startswith('Learning rate'):
-                learning_rate = float(line.split(': ')[1])
-            if line.startswith('Weight decay'):
-                weight_decay = float(line.split(': ')[1])
-            if line.startswith('Batch size'):
-                batch_size = int(line.split(': ')[1])
-        flag=0
-if flag:
-    # 确保转换为整数的参数为整数
-    dim_model = int(64)
-    num_heads = int(2)
-    num_layers = int(1)
-    dropout = float(0.1)
-    learning_rate=1e-5
-    weight_decay=1e-5
-    batch_size=64
+# 加载模型, 修改模型数量
+model_path = ['' for i in range(6)]
+model = [CNN1(), CNN1(), CNN1(), CNN3(), CNN3(), CNN3()]
+model_path[0] = './models_saved_cnn1_pca_9600/model_9851.pth'
+model_path[1] = './models_saved_cnn1_pca_9600/model_9888.pth'
+model_path[2] = './models_saved_cnn1_pca_9600/model_9925.pth'
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'Using device: {device}')
+model_path[3] = './models_saved_cnn3_pca_9600/model_9722.pth'
+model_path[4] = './models_saved_cnn3_pca_9600/model_9759.pth'
+model_path[5] = './models_saved_cnn3_pca_9600/model_9796.pth'
 
-# 数据预处理函数
-def preprocess(folder_path, num_files=1400):
-    data = []
-    for i in range(num_files):
-        filename = f'{i}.bin'
-        with open(os.path.join(folder_path, filename), 'rb') as file:
-            data_row_bin = file.read()
-            data_row_float16 = np.frombuffer(data_row_bin, dtype=np.float16)
-            data_row_float32 = data_row_float16.astype(np.float32)  # 转换为 float32
-            paired_data = data_row_float32.reshape(15360, 2)  # 确保形状为 15360*2
-            data.append(paired_data)
-    return np.array(data)
 
-# 加载测试集数据
-test_data_path = 'test_set'  # 替换为实际的测试集路径
-data_test = preprocess(test_data_path)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# 加载标准化器
-scaler = joblib.load('scaler.pkl')
-data_reshaped = data_test.reshape(data_test.shape[0], -1)  # 将数据展平以进行标准化
-data_scaled = scaler.transform(data_reshaped).reshape(data_test.shape)  # 进行标准化并恢复形状
-# 创建自定义数据集
-class ComplexDataset(Dataset):
-    def __init__(self, data):
-        self.data = data
+for i in range(len(model)):
+    model[i] = torch.load(model_path[i], map_location='cpu')
+    model[i].eval()
+    model[i].to(device)
 
-    def __len__(self):
-        return len(self.data)
+print(model)
+# 假设test_loader用于加载无标签的测试数据
+predictions = []
 
-    def __getitem__(self, idx):
-        sample_data = self.data[idx]
-        return torch.tensor(sample_data, dtype=torch.float32)
 
-test_dataset = ComplexDataset(data_scaled)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+with torch.no_grad():
+    for inputs in test_loader:
+        inputs = inputs.to(device)
+        temp_output = []
+        temp_pred = []
+        for m in model:
+            outputs = m(inputs)
+            temp_output.append(outputs)
+            _, pred = outputs.max(1)
+            temp_pred.append(np.array(pred.cpu()))
+        temp_pred = np.transpose(np.array(temp_pred))
+        batch_final_labels = []
+        for ii in range(len(temp_pred)):
+            line_pred = temp_pred[ii, :]
+            max_num = list(np.bincount(line_pred)).index(
+                np.max(np.bincount(line_pred)))  # 求预测结果的众数，生成标签
+            batch_final_labels.append(max_num)
 
-# 定义简化后的FT-Transformer模型
-class SimplifiedFTTransformer(nn.Module):
-    def __init__(self, input_dim, num_classes, dim_model=dim_model, num_heads=num_heads, num_layers=num_layers, dropout=dropout):
-        super(SimplifiedFTTransformer, self).__init__()
-        self.embedding = nn.Linear(input_dim, dim_model)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=dim_model, nhead=num_heads, dropout=dropout)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        self.classifier = nn.Linear(dim_model, num_classes)
+        predictions.extend(batch_final_labels)
 
-    def forward(self, x):
-        batch_size, seq_len, feature_dim = x.shape
-        x = x.view(batch_size, -1)  # 展平特征维度
-        x = self.embedding(x)
-        x = self.transformer_encoder(x.unsqueeze(1))
-        x = x.mean(dim=1)
-        x = self.classifier(x)
-        return x
 
-# 加载最佳模型
-input_dim = data_scaled.shape[1] * data_scaled.shape[2]  # 展平后的输入维度
-num_classes = 11  # 假设类别数为11
-model = SimplifiedFTTransformer(input_dim=input_dim, num_classes=num_classes).to(device)
-model.load_state_dict(torch.load('best_model_co.pth'))
+print(predictions)
+df_predictions = pd.DataFrame({'Prediction': predictions})
 
-# 预测函数
-def predict(model, data_loader, device):
-    model.eval()
-    all_preds = []
-    with torch.no_grad():
-        for inputs in data_loader:
-            inputs = inputs.to(device)
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            all_preds.extend(preds.cpu().numpy())
-    return np.array(all_preds)
+# 将预测结果保存到CSV文件，提交时注意去除表头
+i = 1
+csv_output_path = '.' + f'/result_{i}.csv'
+if os.path.exists(csv_output_path):
+    i += 1
+    csv_output_path = '.' + f'/result_{i}.csv'
+df_predictions.to_csv(csv_output_path, index=False,
+                      header=False)  # index=False避免将索引写入CSV文件
 
-# 进行预测
-predictions = predict(model, test_loader, device)
-
-# 保存预测结果到CSV文件
-output_path = 'result.csv'
-df = pd.DataFrame(predictions, columns=['predictions'])
-df.to_csv(output_path, index=False, header=False)
-print(f'Predictions saved to {output_path}')
+print(f'Predictions have been saved to {csv_output_path}')
